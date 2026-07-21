@@ -1,0 +1,55 @@
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-wallet_db}
+      POSTGRES_USER: ${POSTGRES_USER:-wallet_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wallet_pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-wallet_user} -d ${POSTGRES_DB:-wallet_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-wallet_user}:${POSTGRES_PASSWORD:-wallet_pass}@db:5432/${POSTGRES_DB:-wallet_db}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-wallet_user}:${POSTGRES_PASSWORD:-wallet_pass}@db:5432/${POSTGRES_DB:-wallet_db}
+      POSTGRES_DB: ${POSTGRES_DB:-wallet_db}
+      POSTGRES_USER: ${POSTGRES_USER:-wallet_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wallet_pass}
+      APP_ENV: production
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  # Run tests: docker-compose run --rm test
+  test:
+    build: .
+    entrypoint: []
+    command: >
+      sh -c "
+        until pg_isready -h db -U ${POSTGRES_USER:-wallet_user} 2>/dev/null; do sleep 1; done &&
+        pytest -v --tb=short
+      "
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-wallet_user}:${POSTGRES_PASSWORD:-wallet_pass}@db:5432/${POSTGRES_DB:-wallet_db}
+      DATABASE_URL_SYNC: postgresql://${POSTGRES_USER:-wallet_user}:${POSTGRES_PASSWORD:-wallet_pass}@db:5432/${POSTGRES_DB:-wallet_db}
+    depends_on:
+      db:
+        condition: service_healthy
+    profiles:
+      - test
+
+volumes:
+  postgres_data:
