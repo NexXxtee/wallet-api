@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "wallet-api"
 version = "1.0.0"
-description = "Internal wallet microservice with idempotency and race-condition protection"
+description = "wallet"
 requires-python = ">=3.10"
 dependencies = [
     "fastapi>=0.111.0",
